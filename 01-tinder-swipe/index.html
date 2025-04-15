@@ -15,7 +15,7 @@
         <div class="cards">
           <article>
             <img
-              src="./photos/1.webp"
+              src="./photos/2.webp"
               alt="Alex, brown hair man, 25 years old"
             />
             <h2>Alex <span>25</span></h2>
@@ -24,11 +24,15 @@
           </article>
 
           <article>
-            <img src="./photos/2.webp" alt="Leila, redhead, 27 years old" />
+            <img src="./photos/1.webp" alt="Leila, redhead, 27 years old" />
             <h2>Leila <span>27</span></h2>
             <div class="choice nope">NOPE</div>
             <div class="choice like">LIKE</div>
           </article>
+
+          <span>
+            No hay más personas cerca de ti.
+          </span>
         </div>
 
         <footer>
@@ -147,6 +151,16 @@
         height: 100%;
         margin: 0 auto;
 
+        & > span {
+          display: grid;
+          place-content: center;
+          color: #777;
+          font-size: 14px;
+          text-align: center;
+          height: 100%;
+          z-index: -1;
+        }
+
         & article {
           border-radius: 8px;
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
@@ -157,6 +171,34 @@
           width: 100%;
           height: 100%;
           z-index: 2;
+
+          &.go-left {
+            transform: translateX(-150%) rotate(-30deg) !important;
+          }
+
+          &.go-right {
+            transform: translateX(150%) rotate(30deg) !important;
+          }
+
+          &.go-left,
+          &.go-right {
+            transition: transform 0.3s ease, rotate 0.3s ease;
+          }
+
+          &.reset {
+            transition: transform 0.3s ease;
+            transform: translateX(0) !important;
+          }
+
+          &.choice {
+            color: black;
+            border: 3px solid;
+            z-index: 9999;
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            padding: 4px 8px;
+          }
 
           & img {
             width: 100%;
@@ -190,18 +232,93 @@
     </style>
 
     <script>
+      const DECISION_THRESHOLD = 75;
       let isAnimating = false;
       let pullDeltaX = 0; // distancia que la card se está arrastrando
 
-      function startDrag(e) {
+      function startDrag(event) {
         if (isAnimating) return;
 
         // recuperar el primer elemento
         const actualCard = event.target.closest("article");
+        if (!actualCard) return;
 
         // obtener posicion inicial del mouse
-        console.log(event);
+        const startX = event.pageX ?? event.touches[0].pageX;
+
+        // escuchar el evento de movimiento del mouse
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onEnd);
+
+        document.addEventListener("touchmove", onMove, { passive: true });
+        document.addEventListener("touchend", onEnd, { passive: true });
+
+        function onMove(event) {
+          console.log(event);
+          // posicion actual del mouse
+          const currentX = event.pageX ?? event.touches[0].pageX;
+
+          // distancia recorrida
+          pullDeltaX = currentX - startX;
+
+          // no hay distancia recorrida
+          if (pullDeltaX === 0) return;
+
+          isAnimating = true;
+          // calcular el angulo de la card
+          const deg = pullDeltaX / 14;
+
+          // aplicar la transformación para que se mueva
+          actualCard.style.transform = `translateX(${pullDeltaX}px) rotate(${deg}deg)`;
+
+          // cambiar el cursor para indicar que se está arrastrando
+          actualCard.style.cursor = "grabbing";
+        }
+
+        function onEnd(event) {
+          // limpiar los eventos
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onEnd);
+
+          document.removeEventListener("touchmove", onMove);
+          document.removeEventListener("touchend", onEnd);
+
+          // saber si el usuario tomo una decisión
+          const decisionMade = Math.abs(pullDeltaX) > DECISION_THRESHOLD;
+
+          if (decisionMade) {
+            // determinar la dirección de la card
+            const goRight = pullDeltaX >= 0;
+            const goLeft = !goRight;
+            // agregar la clase de la card
+            actualCard.classList.add(goRight ? "go-right" : "go-left");
+            // eliminar la card
+            actualCard.addEventListener(
+              "transitionend",
+              () => {
+                actualCard.remove();
+              },
+              { once: true }
+            );
+          } else {
+            // reiniciar la card
+            actualCard.classList.add("reset");
+            // eliminar las clases de la card
+            actualCard.classList.remove("go-left", "go-right");
+          }
+
+          // reiniciar variables
+          actualCard.addEventListener("transitionend", () => {
+            actualCard.removeAttribute("style");
+            actualCard.classList.remove("reset");
+            pullDeltaX = 0;
+            isAnimating = false;
+          });
+        }
       }
+
+      document.addEventListener("mousedown", startDrag);
+      document.addEventListener("touchstart", startDrag, { passive: true });
     </script>
   </body>
 </html>
